@@ -1,7 +1,7 @@
 /** @license
  *
  * jsPDF - PDF Document creation from JavaScript
- * Version 4.0.0 Built on 2025-12-18T10:27:09.425Z
+ * Version 4.0.1 Built on 2026-01-13T17:03:39.051Z
  *                      CommitID 00000000
  *
  * Copyright (c) 2010-2025 James Hall <james@parall.ax>, https://github.com/MrRio/jsPDF
@@ -1598,15 +1598,6 @@ function jsPDF(options) {
         ? value.toString()
         : Array.prototype.join.call(arguments, " ")
     );
-  });
-
-  var getArrayBuffer = (API.__private__.getArrayBuffer = function(data) {
-    var len = data.length,
-      ab = new ArrayBuffer(len),
-      u8 = new Uint8Array(ab);
-
-    while (len--) u8[len] = data.charCodeAt(len);
-    return ab;
   });
 
   var standardFonts = [
@@ -3814,11 +3805,51 @@ function jsPDF(options) {
 
     setOutputDestination(pages[currentPage]);
 
+    return content;
+  });
+
+  var getString = (API.__private__.getString = function(content) {
     return content.join("\n");
   });
 
-  var getBlob = (API.__private__.getBlob = function(data) {
-    return new Blob([getArrayBuffer(data)], {
+  var getArrayBuffer = (API.__private__.getArrayBuffer = function(content) {
+    let length = 0;
+    for (let i = 0; i < content.length; i++) {
+      let contentLine = content[i];
+      length += contentLine.length + 1; // +1 for newline
+    }
+
+    let arrayBuffer = new ArrayBuffer(length);
+    let uint8Array = new Uint8Array(arrayBuffer);
+    let index = 0;
+
+    for (let i = 0; i < content.length; i++) {
+      let contentLine = content[i];
+      for (let j = 0; j < contentLine.length; j++) {
+        uint8Array[index++] = contentLine.charCodeAt(j);
+      }
+      uint8Array[index++] = 0x0a; // newline
+    }
+
+    return arrayBuffer;
+  });
+
+  var getBlob = (API.__private__.getBlob = function(content) {
+    const parts = [];
+
+    for (let i = 0; i < content.length; i++) {
+      let contentLine = content[i];
+      let arrayBuffer = new ArrayBuffer(contentLine.length + 1); // +1 for newline
+      let uint8Array = new Uint8Array(arrayBuffer);
+
+      for (let j = 0; j < contentLine.length; j++) {
+        uint8Array[j] = contentLine.charCodeAt(j);
+      }
+      uint8Array[contentLine.length] = 0x0a; // newline
+      parts.push(arrayBuffer);
+    }
+
+    return new Blob(parts, {
       type: "application/pdf"
     });
   });
@@ -3863,7 +3894,7 @@ function jsPDF(options) {
 
     switch (type) {
       case undefined:
-        return buildDocument();
+        return getString(buildDocument());
       case "save":
         API.save(options.filename);
         break;
@@ -3892,7 +3923,7 @@ function jsPDF(options) {
       case "datauristring":
       case "dataurlstring":
         var dataURI = "";
-        var pdfDocument = buildDocument();
+        var pdfDocument = getString(buildDocument());
         try {
           dataURI = btoa(pdfDocument);
         } catch (e) {
@@ -6902,7 +6933,7 @@ jsPDF.API = {
  * @type {string}
  * @memberof jsPDF#
  */
-jsPDF.version = "4.0.0";
+jsPDF.version = "4.0.1";
 
 /* global jsPDF */
 

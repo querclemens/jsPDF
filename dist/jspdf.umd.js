@@ -1,7 +1,7 @@
 /** @license
  *
  * jsPDF - PDF Document creation from JavaScript
- * Version 4.0.0 Built on 2025-12-18T10:27:09.424Z
+ * Version 4.0.1 Built on 2026-01-13T17:03:39.049Z
  *                      CommitID 00000000
  *
  * Copyright (c) 2010-2025 James Hall <james@parall.ax>, https://github.com/MrRio/jsPDF
@@ -1566,15 +1566,6 @@
     };
     var write = API.__private__.write = function (value) {
       return out(arguments.length === 1 ? value.toString() : Array.prototype.join.call(arguments, " "));
-    };
-    var getArrayBuffer = API.__private__.getArrayBuffer = function (data) {
-      var len = data.length,
-        ab = new ArrayBuffer(len),
-        u8 = new Uint8Array(ab);
-      while (len--) {
-        u8[len] = data.charCodeAt(len);
-      }
-      return ab;
     };
     var standardFonts = [["Helvetica", "helvetica", "normal", "WinAnsiEncoding"], ["Helvetica-Bold", "helvetica", "bold", "WinAnsiEncoding"], ["Helvetica-Oblique", "helvetica", "italic", "WinAnsiEncoding"], ["Helvetica-BoldOblique", "helvetica", "bolditalic", "WinAnsiEncoding"], ["Courier", "courier", "normal", "WinAnsiEncoding"], ["Courier-Bold", "courier", "bold", "WinAnsiEncoding"], ["Courier-Oblique", "courier", "italic", "WinAnsiEncoding"], ["Courier-BoldOblique", "courier", "bolditalic", "WinAnsiEncoding"], ["Times-Roman", "times", "normal", "WinAnsiEncoding"], ["Times-Bold", "times", "bold", "WinAnsiEncoding"], ["Times-Italic", "times", "italic", "WinAnsiEncoding"], ["Times-BoldItalic", "times", "bolditalic", "WinAnsiEncoding"], ["ZapfDingbats", "zapfdingbats", "normal", null], ["Symbol", "symbol", "normal", null]];
     API.__private__.getStandardFonts = function () {
@@ -3412,10 +3403,42 @@
       out("" + offsetOfXRef);
       out("%%EOF");
       setOutputDestination(pages[currentPage]);
+      return content;
+    };
+    var getString = API.__private__.getString = function (content) {
       return content.join("\n");
     };
-    var getBlob = API.__private__.getBlob = function (data) {
-      return new Blob([getArrayBuffer(data)], {
+    var getArrayBuffer = API.__private__.getArrayBuffer = function (content) {
+      var length = 0;
+      for (var i = 0; i < content.length; i++) {
+        var contentLine = content[i];
+        length += contentLine.length + 1; // +1 for newline
+      }
+      var arrayBuffer = new ArrayBuffer(length);
+      var uint8Array = new Uint8Array(arrayBuffer);
+      var index = 0;
+      for (var _i = 0; _i < content.length; _i++) {
+        var _contentLine = content[_i];
+        for (var j = 0; j < _contentLine.length; j++) {
+          uint8Array[index++] = _contentLine.charCodeAt(j);
+        }
+        uint8Array[index++] = 0x0a; // newline
+      }
+      return arrayBuffer;
+    };
+    var getBlob = API.__private__.getBlob = function (content) {
+      var parts = [];
+      for (var i = 0; i < content.length; i++) {
+        var contentLine = content[i];
+        var arrayBuffer = new ArrayBuffer(contentLine.length + 1); // +1 for newline
+        var uint8Array = new Uint8Array(arrayBuffer);
+        for (var j = 0; j < contentLine.length; j++) {
+          uint8Array[j] = contentLine.charCodeAt(j);
+        }
+        uint8Array[contentLine.length] = 0x0a; // newline
+        parts.push(arrayBuffer);
+      }
+      return new Blob(parts, {
         type: "application/pdf"
       });
     };
@@ -3455,7 +3478,7 @@
       }
       switch (type) {
         case undefined:
-          return buildDocument();
+          return getString(buildDocument());
         case "save":
           API.save(options.filename);
           break;
@@ -3475,7 +3498,7 @@
         case "datauristring":
         case "dataurlstring":
           var dataURI = "";
-          var pdfDocument = buildDocument();
+          var pdfDocument = getString(buildDocument());
           try {
             dataURI = btoa(pdfDocument);
           } catch (e) {
@@ -4148,9 +4171,9 @@
               var words = da[l].split(" ");
               text.push([words[0] + " ", newX, newY]);
               backToStartX = 0; // distance to reset back to the left
-              for (var _i = 1; _i < words.length; _i++) {
-                var shiftAmount = (findWidth(words[_i - 1] + " " + words[_i]) - findWidth(words[_i])) * scaleFactor + spacing;
-                if (_i == words.length - 1) text.push([words[_i], shiftAmount, 0]);else text.push([words[_i] + " ", shiftAmount, 0]);
+              for (var _i2 = 1; _i2 < words.length; _i2++) {
+                var shiftAmount = (findWidth(words[_i2 - 1] + " " + words[_i2]) - findWidth(words[_i2])) * scaleFactor + spacing;
+                if (_i2 == words.length - 1) text.push([words[_i2], shiftAmount, 0]);else text.push([words[_i2] + " ", shiftAmount, 0]);
                 backToStartX -= shiftAmount;
               }
             } else {
@@ -6024,7 +6047,7 @@
    * @type {string}
    * @memberof jsPDF#
    */
-  jsPDF.version = "4.0.0";
+  jsPDF.version = "4.0.1";
 
   var jsPDFAPI = jsPDF.API;
   var scaleFactor = 1;
